@@ -4,27 +4,24 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 type Chip struct {
-	ID        uuid.UUID
-	Timestamp time.Time
-	Records   sync.Map
+	Records sync.Map
 }
 
-func NewChip(id uuid.UUID) *Chip {
+type ChipSnapshot struct {
+	Records map[uint8]uint64
+}
+
+func NewChip() *Chip {
 	return &Chip{
-		ID:        id,
-		Timestamp: time.Now(),
-		Records:   sync.Map{},
+		Records: sync.Map{},
 	}
 }
 
-func (c *Chip) Get(ns uint8) uint64 {
-	record, ok := c.Records.Load(ns)
+func (c *Chip) Get(namespace uint8) uint64 {
+	record, ok := c.Records.Load(namespace)
 	if !ok {
 		return 0
 	}
@@ -32,25 +29,25 @@ func (c *Chip) Get(ns uint8) uint64 {
 	return atomic.LoadUint64(record.(*uint64))
 }
 
-func (c *Chip) Set(ns uint8, flags uint64) {
-	actual, _ := c.Records.LoadOrStore(ns, new(uint64))
+func (c *Chip) Set(namespace uint8, flags uint64) {
+	actual, _ := c.Records.LoadOrStore(namespace, new(uint64))
 	ptr := actual.(*uint64)
 
 	atomic.OrUint64(ptr, flags)
 }
 
-func (c *Chip) SetPositions(ns uint8, pos ...uint8) error {
-	for _, p := range pos {
+func (c *Chip) SetPositions(namespace uint8, position ...uint8) error {
+	for _, p := range position {
 		if p > 63 {
-			return fmt.Errorf("position %d is out of range", pos)
+			return fmt.Errorf("position %d is out of range", position)
 		}
 	}
 
-	actual, _ := c.Records.LoadOrStore(ns, new(uint64))
+	actual, _ := c.Records.LoadOrStore(namespace, new(uint64))
 	ptr := actual.(*uint64)
 
 	var flag uint64
-	for _, p := range pos {
+	for _, p := range position {
 		flag |= 1 << p
 	}
 
@@ -59,8 +56,8 @@ func (c *Chip) SetPositions(ns uint8, pos ...uint8) error {
 	return nil
 }
 
-func (c *Chip) Check(ns uint8, flags uint64) bool {
-	record, ok := c.Records.Load(ns)
+func (c *Chip) Check(namespace uint8, flags uint64) bool {
+	record, ok := c.Records.Load(namespace)
 	if !ok {
 		return 0&flags == flags
 	}
@@ -68,15 +65,34 @@ func (c *Chip) Check(ns uint8, flags uint64) bool {
 	return atomic.LoadUint64(record.(*uint64))&flags == flags
 }
 
-func (c *Chip) CheckPosition(ns uint8, pos uint8) bool {
-	if pos > 63 {
+func (c *Chip) CheckPosition(namespace uint8, position uint8) bool {
+	if position > 63 {
 		return false
 	}
 
-	record, ok := c.Records.Load(ns)
+	record, ok := c.Records.Load(namespace)
 	if !ok {
 		return false
 	}
 
-	return atomic.LoadUint64(record.(*uint64))&(1<<pos) != 0
+	return atomic.LoadUint64(record.(*uint64))&(1<<position) != 0
+}
+
+// Export uses Records.Range so we build the snapshot but other keys can be
+// set while we are iterating over the map. In this experimental phase, I don't
+// think we need to block and restart fresh every time we export.
+func (c *Chip) Export() ChipSnapshot {
+	snapshot := ChipSnapshot{
+		Records: make(map[uint8]uint64),
+	}
+
+	c.Records.Range(func(key, value any) bool {
+		snapshot.Records[key.(uint8)] = atomic.LoadUint64(value.(*uint64))
+
+		c.Records.Delete(key)
+
+		return true
+	})
+
+	return snapshot
 }

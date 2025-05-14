@@ -3,7 +3,6 @@ package chip
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,7 +68,7 @@ func Test_Table_Set_Check(t *testing.T) {
 		},
 	}
 
-	chip := NewChip(uuid.Nil)
+	chip := NewChip()
 	var incr uint8
 
 	for testmsg, tt := range tests {
@@ -84,7 +83,7 @@ func Test_Table_Set_Check(t *testing.T) {
 }
 
 func Test_SetPosition(t *testing.T) {
-	chip := NewChip(uuid.Nil)
+	chip := NewChip()
 
 	chip.SetPositions(23, 0)
 
