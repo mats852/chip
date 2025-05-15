@@ -3,6 +3,7 @@ package chip
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,32 +69,33 @@ func Test_Table_Set_Check(t *testing.T) {
 		},
 	}
 
-	chip := NewChip()
-	var incr uint8
+	chip := NewChip(uuid.Nil)
 
 	for testmsg, tt := range tests {
 		t.Run(testmsg, func(t *testing.T) {
-			chip.Set(incr, tt.flags)
+			chip.Set(tt.flags)
 
-			tt.assertion(t, chip.Check(incr, tt.check))
+			tt.assertion(t, chip.Check(tt.check))
 
-			incr++
+      chip.Clear()
 		})
 	}
 }
 
 func Test_SetPosition(t *testing.T) {
-	chip := NewChip()
+	chip := NewChip(uuid.Nil)
 
-	chip.SetPositions(23, 0)
+	chip.SetPositions(0)
 
-	assert.False(t, chip.Check(23, 0b10000000))
-	assert.True(t, chip.Check(23, 0b1))
+	assert.False(t, chip.Check(0b10000000))
+	assert.True(t, chip.Check(0b1))
 
-	chip.SetPositions(15, 0, 1, 3)
+	chip.Clear()
 
-	assert.True(t, chip.Check(15, 0b1011))
-	assert.False(t, chip.Check(15, 0b1111))
+	chip.MustSetPositions(15, 0, 1, 3)
 
-	assert.True(t, chip.CheckPosition(15, 3))
+	assert.True(t, chip.Check(0b1011))
+	assert.False(t, chip.Check(0b1111))
+
+	assert.True(t, chip.MustCheckPosition(3))
 }

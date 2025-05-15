@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mats852/chip"
 )
 
@@ -15,17 +14,14 @@ type Exporter struct {
 	client *http.Client
 	ticker *time.Ticker
 
-	chip *chip.Chip
+	chips []*chip.Chip
 }
 
-func NewExporter(
-	id uuid.UUID,
-	c *chip.Chip,
-) *Exporter {
+func NewExporter(c ...*chip.Chip) *Exporter {
 	return &Exporter{
 		client: &http.Client{},
 		ticker: time.NewTicker(5 * time.Second),
-		chip:   c,
+		chips:  c,
 	}
 }
 
@@ -42,12 +38,11 @@ func (e *Exporter) Serve(ctx context.Context) error {
 }
 
 func (e *Exporter) export() {
-	snapshot := e.chip.Export()
-
 	slog.Info("exporting chips")
 
-	for k, v := range snapshot.Records {
-		slog.Info("record", "namespace", k, "flags", fmt.Sprintf("0b%064b", v))
+	for _, chip := range e.chips {
+		flag := chip.Clear()
+		slog.Info("exported chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", flag))
 	}
 
 	// TODO: send on the wire to the listener

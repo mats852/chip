@@ -2,97 +2,75 @@ package chip
 
 import (
 	"fmt"
-	"sync"
 	"sync/atomic"
+
+	"github.com/google/uuid"
 )
 
 type Chip struct {
-	Records sync.Map
+	ID     uuid.UUID
+	Record atomic.Uint64
 }
 
-type ChipSnapshot struct {
-	Records map[uint8]uint64
-}
-
-func NewChip() *Chip {
+func NewChip(id uuid.UUID) *Chip {
 	return &Chip{
-		Records: sync.Map{},
+		ID:     id,
+		Record: atomic.Uint64{},
 	}
 }
 
-func (c *Chip) Get(namespace uint8) uint64 {
-	record, ok := c.Records.Load(namespace)
-	if !ok {
-		return 0
-	}
-
-	return atomic.LoadUint64(record.(*uint64))
+func (c *Chip) Get() uint64 {
+	return c.Record.Load()
 }
 
-func (c *Chip) Set(namespace uint8, flags uint64) {
-	actual, _ := c.Records.LoadOrStore(namespace, new(uint64))
-	ptr := actual.(*uint64)
-
-	atomic.OrUint64(ptr, flags)
+func (c *Chip) Set(flags uint64) {
+	c.Record.Or(flags)
 }
 
-func (c *Chip) SetPositions(namespace uint8, position ...uint8) error {
+func (c *Chip) SetPositions(position ...uint8) error {
 	for _, p := range position {
 		if p > 63 {
 			return fmt.Errorf("position %d is out of range", position)
 		}
 	}
 
-	actual, _ := c.Records.LoadOrStore(namespace, new(uint64))
-	ptr := actual.(*uint64)
-
 	var flag uint64
 	for _, p := range position {
 		flag |= 1 << p
 	}
 
-	atomic.OrUint64(ptr, flag)
+	c.Record.Or(flag)
 
 	return nil
 }
 
-func (c *Chip) Check(namespace uint8, flags uint64) bool {
-	record, ok := c.Records.Load(namespace)
-	if !ok {
-		return 0&flags == flags
+func (c *Chip) MustSetPositions(position ...uint8) {
+	if err := c.SetPositions(position...); err != nil {
+		panic(err)
 	}
-
-	return atomic.LoadUint64(record.(*uint64))&flags == flags
 }
 
-func (c *Chip) CheckPosition(namespace uint8, position uint8) bool {
+func (c *Chip) Check(flags uint64) bool {
+	return c.Record.Load()&flags == flags
+}
+
+func (c *Chip) CheckPosition(position uint8) (bool, error) {
 	if position > 63 {
-		return false
+		return false, fmt.Errorf("position %d is out of range", position)
 	}
 
-	record, ok := c.Records.Load(namespace)
-	if !ok {
-		return false
-	}
-
-	return atomic.LoadUint64(record.(*uint64))&(1<<position) != 0
+	return c.Check(1 << position), nil
 }
 
-// Export uses Records.Range so we build the snapshot but other keys can be
-// set while we are iterating over the map. In this experimental phase, I don't
-// think we need to block and restart fresh every time we export.
-func (c *Chip) Export() ChipSnapshot {
-	snapshot := ChipSnapshot{
-		Records: make(map[uint8]uint64),
+func (c *Chip) MustCheckPosition(position uint8) bool {
+	ok, err := c.CheckPosition(position)
+	if err != nil {
+		panic(err)
 	}
 
-	c.Records.Range(func(key, value any) bool {
-		snapshot.Records[key.(uint8)] = atomic.LoadUint64(value.(*uint64))
+	return ok
+}
 
-		c.Records.Delete(key)
-
-		return true
-	})
-
-	return snapshot
+func (c *Chip) Clear() uint64 {
+  return c.Record.Swap(0)
 }

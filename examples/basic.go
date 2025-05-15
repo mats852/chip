@@ -15,18 +15,17 @@ import (
 var wellKnownUUID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
 func main() {
-	chip := chip.NewChip()
+	chip := chip.NewChip(wellKnownUUID)
 
-	exportr := export.NewExporter(wellKnownUUID, chip)
+	exportr := export.NewExporter(chip)
 
 	go func() {
 		for {
-			namespace, _ := rand.Int(rand.Reader, big.NewInt(8))
 			pos, _ := rand.Int(rand.Reader, big.NewInt(64))
 
-			chip.SetPositions(uint8(namespace.Int64()), uint8(pos.Int64()))
+			chip.SetPositions(uint8(pos.Int64()))
 
-      slog.Info("Set position", "namespace", namespace.Int64(), "position", pos.Int64())
+			slog.Info("Set position", "position", pos.Int64())
 
 			time.Sleep(250 * time.Millisecond)
 		}
