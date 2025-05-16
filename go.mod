@@ -3,6 +3,7 @@ module github.com/mats852/chip
 go 1.24.1
 
 require (
+	github.com/google/flatbuffers v25.2.10+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
 )

@@ -1,0 +1,13 @@
+namespace pkg.export.dto;
+
+table Chip {
+  uuid:[ubyte] (required);
+  flags:uint64;
+}
+
+table ChipDto {
+  timestamp:uint64;
+  chips:[Chip];
+}
+
+root_type ChipDto;

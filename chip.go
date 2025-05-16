@@ -9,22 +9,22 @@ import (
 
 type Chip struct {
 	ID     uuid.UUID
-	Record atomic.Uint64
+	Flags atomic.Uint64
 }
 
 func NewChip(id uuid.UUID) *Chip {
 	return &Chip{
 		ID:     id,
-		Record: atomic.Uint64{},
+		Flags: atomic.Uint64{},
 	}
 }
 
 func (c *Chip) Get() uint64 {
-	return c.Record.Load()
+	return c.Flags.Load()
 }
 
 func (c *Chip) Set(flags uint64) {
-	c.Record.Or(flags)
+	c.Flags.Or(flags)
 }
 
 func (c *Chip) SetPositions(position ...uint8) error {
@@ -39,7 +39,7 @@ func (c *Chip) SetPositions(position ...uint8) error {
 		flag |= 1 << p
 	}
 
-	c.Record.Or(flag)
+	c.Flags.Or(flag)
 
 	return nil
 }
@@ -51,7 +51,7 @@ func (c *Chip) MustSetPositions(position ...uint8) {
 }
 
 func (c *Chip) Check(flags uint64) bool {
-	return c.Record.Load()&flags == flags
+	return c.Flags.Load()&flags == flags
 }
 
 func (c *Chip) CheckPosition(position uint8) (bool, error) {
@@ -72,5 +72,5 @@ func (c *Chip) MustCheckPosition(position uint8) bool {
 }
 
 func (c *Chip) Clear() uint64 {
-  return c.Record.Swap(0)
+  return c.Flags.Swap(0)
 }

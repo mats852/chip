@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	flatbuffers "github.com/google/flatbuffers/go"
+
 	"github.com/mats852/chip"
+	"github.com/mats852/chip/pkg/export/dto"
 )
 
 type Exporter struct {
@@ -40,10 +43,37 @@ func (e *Exporter) Serve(ctx context.Context) error {
 func (e *Exporter) export() {
 	slog.Info("exporting chips")
 
-	for _, chip := range e.chips {
+	builder := flatbuffers.NewBuilder(64 + len(e.chips)*32) // re-evaluate this size
+
+	chipOffsets := make([]flatbuffers.UOffsetT, len(e.chips))
+
+	for i, chip := range e.chips {
+		idPos := builder.CreateByteVector(chip.ID[:])
+
 		flag := chip.Clear()
+
+		dto.ChipStart(builder)
+		dto.ChipAddUuid(builder, idPos)
+		dto.ChipAddFlags(builder, flag)
+
+		chipOffsets[i] = dto.ChipEnd(builder)
+
 		slog.Info("exported chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", flag))
 	}
 
+	dto.ChipDtoStartChipsVector(builder, len(chipOffsets))
+	for i := len(chipOffsets) - 1; i >= 0; i-- {
+		builder.PrependUOffsetT(chipOffsets[i])
+	}
+
+	chipsVector := builder.EndVector(len(chipOffsets))
+
+	dto.ChipDtoStart(builder)
+	dto.ChipDtoAddTimestamp(builder, uint64(time.Now().Unix()))
+	dto.ChipDtoAddChips(builder, chipsVector)
+
+	builder.Finish(dto.ChipDtoEnd(builder))
+
 	// TODO: send on the wire to the listener
+	Receive(builder.FinishedBytes())
 }
