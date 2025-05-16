@@ -1,15 +1,15 @@
-# chip
+# chip 🪵🪒
 
 instead of logging, distill your thoughts into bit flags that you can easily query
 
-## disclaimer
+## disclaimer 💬
 
 this project is a work in progress, and is not yet ready for production use!
 
 ## concept
 
 chip is a novel observability tool that aims to replace traditional verbose logging
-with compact 64-bit flag arrays. Rather than generating kilobytes of text logs,
+with compact 64-bit flag arrays. rather than generating kilobytes of text logs,
 chip allows you to flip bits to represent application states, drastically reducing
 storage requirements, parsing and querying compute and network traffic.
 
@@ -22,10 +22,10 @@ storage requirements, parsing and querying compute and network traffic.
 
 ## how it works
 
-1. Define constant bit flags for your application states
-2. Use your configured flags to set the state of your application
-3. Periodically export chip batches to a sink (e.g., a database, file, etc.)
-4. Use your favorite tool to query the exported chips
+1. define constant bit flags for your application states
+2. use your configured flags to set the state of your application
+3. periodically export chip batches to a sink (e.g., a database, file, etc.)
+4. use your favorite tool to query the exported chips
 
 ## example usage
 
