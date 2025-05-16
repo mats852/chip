@@ -1,8 +1,8 @@
 package export
 
 import (
-	"fmt"
-	"log/slog"
+	"context"
+  "log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,12 +10,26 @@ import (
 	"github.com/mats852/chip/pkg/export/dto"
 )
 
-func Receive(data []byte) {
+type ReceiverRepository interface {
+	Store(ctx context.Context, timestamp time.Time, chip *chip.Chip) error
+}
+
+type Receiver struct {
+	receiverRepository ReceiverRepository
+}
+
+func NewReceiver(receiverRepository ReceiverRepository) *Receiver {
+  return &Receiver{
+    receiverRepository: receiverRepository,
+  }
+}
+
+func (r *Receiver) Handle(data []byte) error {
 	responseDto := dto.GetRootAsChipDto(data, 0)
 
 	timestamp := time.Unix(int64(responseDto.Timestamp()), 0)
 
-	slog.Info("Receiving data", "timestamp", timestamp.Format(time.RFC3339), "raw", responseDto.Timestamp())
+	slog.Info("receiving data", "time", timestamp.Format(time.RFC3339), "timestamp", responseDto.Timestamp())
 
 	for i := range responseDto.ChipsLength() {
 		chipDto := &dto.Chip{}
@@ -27,6 +41,8 @@ func Receive(data []byte) {
 
 		chip.Flags.Store(chipDto.Flags())
 
-		slog.Info("received chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", chip.Get()))
+    r.receiverRepository.Store(context.TODO(), timestamp, chip)
 	}
+
+  return nil
 }

@@ -8,13 +8,13 @@ import (
 )
 
 type Chip struct {
-	ID     uuid.UUID
+	ID    uuid.UUID
 	Flags atomic.Uint64
 }
 
 func NewChip(id uuid.UUID) *Chip {
 	return &Chip{
-		ID:     id,
+		ID:    id,
 		Flags: atomic.Uint64{},
 	}
 }
@@ -72,5 +72,5 @@ func (c *Chip) MustCheckPosition(position uint8) bool {
 }
 
 func (c *Chip) Clear() uint64 {
-  return c.Flags.Swap(0)
+	return c.Flags.Swap(0)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -13,19 +12,33 @@ import (
 	"github.com/mats852/chip/pkg/export/dto"
 )
 
-type Exporter struct {
-	client *http.Client
-	ticker *time.Ticker
+const (
+	MaxChips = 64 // arbitrary number for now
+)
 
-	chips []*chip.Chip
+type ExporterSender interface {
+	Send(ctx context.Context, data []byte) error
 }
 
-func NewExporter(c ...*chip.Chip) *Exporter {
-	return &Exporter{
-		client: &http.Client{},
-		ticker: time.NewTicker(5 * time.Second),
-		chips:  c,
+// Exporter is responsible for exporting chips to a sender.
+// It periodically sends the chips to the sender and collects the values by
+// calling Clear on each chip to retrieve and reset the flags.
+type Exporter struct {
+	sender ExporterSender
+	ticker *time.Ticker
+	chips  []*chip.Chip
+}
+
+func NewExporter(sender ExporterSender, c ...*chip.Chip) (*Exporter, error) {
+	if len(c) == 0 || len(c) > MaxChips {
+		return nil, fmt.Errorf("expects 1 to %d chips, received %d", MaxChips, len(c))
 	}
+
+	return &Exporter{
+		ticker: time.NewTicker(5 * time.Second),
+		sender: sender,
+		chips:  c,
+	}, nil
 }
 
 // Serve starts the exporter and periodically sends the chips.
@@ -41,24 +54,32 @@ func (e *Exporter) Serve(ctx context.Context) error {
 }
 
 func (e *Exporter) export() {
-	slog.Info("exporting chips")
+	slog.Debug("exporting chips")
 
-	builder := flatbuffers.NewBuilder(64 + len(e.chips)*32) // re-evaluate this size
+	data := serializeChips(e.chips)
 
-	chipOffsets := make([]flatbuffers.UOffsetT, len(e.chips))
+	// TODO: 1. enqueue in buffer and dequeue the buffer with the client
+	// TODO: 2. send on the wire to the listener
+	// TODO: 3. add an in memory buffer to keep n records in case the network is down
 
-	for i, chip := range e.chips {
+	if err := e.sender.Send(context.TODO(), data); err != nil {
+		slog.Error("failed to send data", "error", err)
+	}
+}
+
+func serializeChips(chips []*chip.Chip) []byte {
+	builder := flatbuffers.NewBuilder(64 + len(chips)*32) // re-evaluate this size
+
+	chipOffsets := make([]flatbuffers.UOffsetT, len(chips))
+
+	for i, chip := range chips {
 		idPos := builder.CreateByteVector(chip.ID[:])
-
-		flag := chip.Clear()
 
 		dto.ChipStart(builder)
 		dto.ChipAddUuid(builder, idPos)
-		dto.ChipAddFlags(builder, flag)
+		dto.ChipAddFlags(builder, chip.Clear())
 
 		chipOffsets[i] = dto.ChipEnd(builder)
-
-		slog.Info("exported chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", flag))
 	}
 
 	dto.ChipDtoStartChipsVector(builder, len(chipOffsets))
@@ -74,6 +95,5 @@ func (e *Exporter) export() {
 
 	builder.Finish(dto.ChipDtoEnd(builder))
 
-	// TODO: send on the wire to the listener
-	Receive(builder.FinishedBytes())
+	return builder.FinishedBytes()
 }

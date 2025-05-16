@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"time"
@@ -12,20 +13,41 @@ import (
 	"github.com/mats852/chip/pkg/export"
 )
 
-var wellKnownUUID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+var wellKnownUUID = uuid.MustParse("8badf00d-cafe-beef-dead-baaaaaaaaaad")
+
+type ShimSender struct {
+	receiver *export.Receiver
+}
+
+func (s *ShimSender) Send(ctx context.Context, data []byte) error {
+	return s.receiver.Handle(data)
+}
+
+type ShimReceiverRepository struct{}
+
+func (s *ShimReceiverRepository) Store(ctx context.Context, timestamp time.Time, chip *chip.Chip) error {
+	slog.Info("handling chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", chip.Get()), "timestamp", timestamp.Format(time.RFC3339))
+	return nil
+}
 
 func main() {
 	chip := chip.NewChip(wellKnownUUID)
 
-	exportr := export.NewExporter(chip)
+	receiver := export.NewReceiver(&ShimReceiverRepository{})
+
+	shimSender := &ShimSender{receiver: receiver}
+
+	exportr, err := export.NewExporter(shimSender, chip)
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
 		for {
 			pos, _ := rand.Int(rand.Reader, big.NewInt(64))
-
 			chip.SetPositions(uint8(pos.Int64()))
 
-			slog.Info("Set position", "position", pos.Int64())
+			slog.Info("set", "position", pos.Int64())
 
 			time.Sleep(250 * time.Millisecond)
 		}
