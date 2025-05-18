@@ -51,10 +51,16 @@ func main() {
 
 	shimSender := &ShimSender{receiver: receiver}
 
-	exportr, err := exporter.NewExporter(shimSender, chip)
+	exporterOpts := exporter.ExporterOpts{
+		Interval: 5 * time.Second,
+	}
+
+	exportr, err := exporter.NewExporter(shimSender, exporterOpts)
 	if err != nil {
 		panic(err)
 	}
+
+	exportr.Add(chip)
 
 	go func() {
 		for {

@@ -46,6 +46,8 @@ myFirstChip := chip.New("well-known-uuid")
 
 chipExporter := chip.NewExporter(chip, chip.ExporterOpts{/* ... */})
 
+chipExporter.Add(myFirstChip) // chip is added and periodically exported
+
 go chipExporter.Serve(context.TODO()) // github.com/thejerf/suture supervisable interface
 
 // optional: pass the chip around in your application
