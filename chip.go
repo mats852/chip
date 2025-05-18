@@ -3,6 +3,7 @@ package chip
 import (
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -73,4 +74,22 @@ func (c *Chip) MustCheckPosition(position uint8) bool {
 
 func (c *Chip) Clear() uint64 {
 	return c.Flags.Swap(0)
+}
+
+type Snapshot struct {
+	Timestamp time.Time
+	Chips     map[uuid.UUID]uint64
+}
+
+func NewSnapshot(chips []*Chip) Snapshot {
+	snapshot := Snapshot{
+		Timestamp: time.Now(),
+		Chips:     make(map[uuid.UUID]uint64),
+	}
+
+	for _, chip := range chips {
+		snapshot.Chips[chip.ID] = chip.Clear()
+	}
+
+	return snapshot
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -10,34 +11,47 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mats852/chip"
-	"github.com/mats852/chip/pkg/export"
+	"github.com/mats852/chip/exporter"
+	"github.com/mats852/chip/receiver"
 )
 
 var wellKnownUUID = uuid.MustParse("8badf00d-cafe-beef-dead-baaaaaaaaaad")
 
 type ShimSender struct {
-	receiver *export.Receiver
+	receiver *receiver.Receiver
 }
 
-func (s *ShimSender) Send(ctx context.Context, data []byte) error {
+func (s *ShimSender) Send(ctx context.Context, snapshot chip.Snapshot) error {
+	slog.Info("sending data", "time", snapshot.Timestamp)
+
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		panic(err)
+	}
+
 	return s.receiver.Handle(data)
 }
 
 type ShimReceiverRepository struct{}
 
-func (s *ShimReceiverRepository) Store(ctx context.Context, timestamp time.Time, chip *chip.Chip) error {
-	slog.Info("handling chip", "id", chip.ID, "flags", fmt.Sprintf("0b%064b", chip.Get()), "timestamp", timestamp.Format(time.RFC3339))
+func (s *ShimReceiverRepository) Store(ctx context.Context, chipSnaphot chip.Snapshot) error {
+	lgr := slog.With("timestamp", chipSnaphot.Timestamp)
+
+	for k, v := range chipSnaphot.Chips {
+		lgr.With("id", k, "flags", fmt.Sprintf("0b%064b", v)).Info("received chip")
+	}
+
 	return nil
 }
 
 func main() {
 	chip := chip.NewChip(wellKnownUUID)
 
-	receiver := export.NewReceiver(&ShimReceiverRepository{})
+	receiver := receiver.NewReceiver(&ShimReceiverRepository{})
 
 	shimSender := &ShimSender{receiver: receiver}
 
-	exportr, err := export.NewExporter(shimSender, chip)
+	exportr, err := exporter.NewExporter(shimSender, chip)
 	if err != nil {
 		panic(err)
 	}
