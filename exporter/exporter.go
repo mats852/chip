@@ -13,11 +13,11 @@ import (
 const (
 	MaxChips = 64 // arbitrary number for now
 
-  DefaultInterval = 5 * time.Minute
+	DefaultInterval = 5 * time.Minute
 )
 
 type ExporterOpts struct {
-  Interval time.Duration
+	Interval time.Duration
 }
 
 // Exporter is responsible for exporting chips to a sender.
@@ -31,24 +31,23 @@ type Exporter struct {
 
 func NewExporter(sndr sender.Sender, opts ExporterOpts) (*Exporter, error) {
 	return &Exporter{
-    ticker: time.NewTicker(opts.Interval), // TODO: validation and default
+		ticker: time.NewTicker(opts.Interval), // TODO: validation and default
 		sender: sndr,
-    chips:nil,
+		chips:  nil,
 	}, nil
 }
 
-
 func (e *Exporter) Add(c *chip.Chip, chips ...*chip.Chip) error {
-  count := 1 + len(chips)
+	count := 1 + len(chips)
 
-	if count + len(e.chips) > MaxChips {
+	if count+len(e.chips) > MaxChips {
 		return fmt.Errorf("expects 1 to %d chips, has %d, adding %d", MaxChips, len(e.chips), count)
 	}
 
-  e.chips = append(e.chips, c)
-  e.chips = append(e.chips, chips...)
+	e.chips = append(e.chips, c)
+	e.chips = append(e.chips, chips...)
 
-  return nil
+	return nil
 }
 
 // Serve starts the exporter and periodically sends the chips.

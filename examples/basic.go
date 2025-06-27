@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/mats852/chip"
 	"github.com/mats852/chip/exporter"
 	"github.com/mats852/chip/receiver"

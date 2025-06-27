@@ -77,7 +77,7 @@ func Test_Table_Set_Check(t *testing.T) {
 
 			tt.assertion(t, chip.Check(tt.check))
 
-      chip.Clear()
+			chip.Clear()
 		})
 	}
 }
